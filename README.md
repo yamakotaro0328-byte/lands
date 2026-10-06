@@ -15,7 +15,9 @@ mvn package
 | `/lands claim` / `unclaim` | 現在のチャンクを保護 / 解除（ショートカット） |
 | `/lands map` | 土地マップを開く |
 | `/lands spawn` | 自分の土地へテレポート |
+| `/lands bank` | 土地の銀行を開く |
 | `/lands reload` | 設定・データ再読込（`lands.admin`） |
+| `/lands taxnow` | 今すぐ全土地から税金を徴収（`lands.admin`） |
 
 ## GUI でできること
 - 土地の作成（名前はチャットで入力）・名前変更・削除
@@ -27,11 +29,20 @@ mvn package
 - スポーン地点設定、土地一覧から他の土地へテレポート
 - 管理者は土地一覧で Shift+右クリックで任意の土地を削除
 
+## 経済・税金（Vault 連携）
+Vault と経済プラグイン（EssentialsX など）があると有効になります。無い場合は無料・税金なし。
+- 土地作成：プレイヤーの所持金から `create-cost`（最初の1チャンク込み）
+- チャンク保護：土地の銀行から `claim-cost`、解除で `unclaim-refund` を返金
+- 税金：`interval-hours` ごとに「チャンク数×`per-chunk` + メンバー数×`per-member`」を銀行から徴収
+- 払えない場合は不足額に応じて新しく保護したチャンクから没収、全て失うと土地削除
+- 銀行メニューで入金（全員）・引き出し（信頼メンバー以上）、次の税金までの時間を確認
+- 土地削除時は銀行残高がオーナーに返金
+
 ## 権限
 - `lands.use` (デフォルト: 全員)
 - `lands.admin` (デフォルト: OP) — 全土地での操作バイパス、上限無視、削除
 
 ## 設定 (`config.yml`)
-`max-chunks`, `max-name-length`, `disabled-worlds`, `show-enter-title`
+`max-chunks`, `max-name-length`, `disabled-worlds`, `show-enter-title`, `economy.*`, `tax.*`
 
 データは `plugins/SimpleLands/lands.yml` に保存されます。

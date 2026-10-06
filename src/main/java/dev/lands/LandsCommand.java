@@ -14,7 +14,7 @@ import java.util.List;
 
 /** 基本は /lands でGUIを開くだけ。よく使う操作はショートカットとして用意 */
 public class LandsCommand implements CommandExecutor, TabCompleter {
-    private static final List<String> SUBS = List.of("claim", "unclaim", "map", "spawn", "reload");
+    private static final List<String> SUBS = List.of("claim", "unclaim", "map", "spawn", "bank", "reload", "taxnow");
     private final LandsPlugin plugin;
 
     public LandsCommand(LandsPlugin plugin) { this.plugin = plugin; }
@@ -28,12 +28,19 @@ public class LandsCommand implements CommandExecutor, TabCompleter {
             LandsPlugin.msg(sender, "§aリロードしました");
             return true;
         }
+        if (args.length > 0 && args[0].equalsIgnoreCase("taxnow")) {
+            if (!sender.hasPermission("lands.admin")) { LandsPlugin.msg(sender, "§c権限がありません"); return true; }
+            plugin.taxTask().collectAll();
+            LandsPlugin.msg(sender, "§a全ての土地から税金を徴収しました");
+            return true;
+        }
         if (!(sender instanceof Player p)) { sender.sendMessage("プレイヤーのみ実行できます"); return true; }
         if (args.length == 0) { new MainMenu(p).open(); return true; }
         switch (args[0].toLowerCase()) {
             case "claim" -> LandActions.claim(p, ChunkPos.of(p.getLocation()));
             case "unclaim" -> LandActions.unclaim(p, ChunkPos.of(p.getLocation()));
             case "map" -> new MapMenu(p).open();
+            case "bank" -> new dev.lands.gui.BankMenu(p).open();
             case "spawn" -> { Land l = LandActions.requireLand(p); if (l != null) LandActions.teleport(p, l); }
             default -> new MainMenu(p).open();
         }

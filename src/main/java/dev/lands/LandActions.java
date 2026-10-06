@@ -14,6 +14,7 @@ public final class LandActions {
     private LandActions() {}
 
     private static LandManager lm() { return LandsPlugin.get().lands(); }
+    private static Economy eco() { return LandsPlugin.get().economy(); }
 
     public static Land requireLand(Player p) {
         Land land = lm().getLandOf(p.getUniqueId());
@@ -40,9 +41,17 @@ public final class LandActions {
             msg(p, "§c土地名は" + max + "文字以内の英数字・日本語・_-で入力してください"); return false;
         }
         if (lm().getLand(name) != null) { msg(p, "§cその名前の土地は既に存在します"); return false; }
+        ChunkPos pos = ChunkPos.of(p.getLocation());
+        if (lm().getLandAt(pos) != null || LandsPlugin.get().getConfig().getStringList("disabled-worlds").contains(pos.world())) {
+            msg(p, "§c未保護のチャンクで作成してください"); return false;
+        }
+        double cost = eco().createCost();
+        if (!eco().withdraw(p, cost)) { msg(p, "§c所持金が足りません（必要: " + eco().format(cost) + "）"); return false; }
         Land land = lm().create(name, p.getUniqueId());
-        msg(p, "§a土地「" + land.getName() + "」を作成しました！メニューからチャンクを保護しましょう");
-        claim(p, ChunkPos.of(p.getLocation()));
+        land.setSpawn(p.getLocation());
+        lm().claim(land, pos); // 最初の1チャンクは作成費用に含む
+        msg(p, "§a土地「" + land.getName() + "」を作成しました！" + (cost > 0 ? " §7(-" + eco().format(cost) + ")" : ""));
+        if (eco().claimCost() > 0) msg(p, "§7チャンクを増やすには土地の銀行に入金してください");
         return true;
     }
 
@@ -60,7 +69,13 @@ public final class LandActions {
             msg(p, "§cチャンク数の上限(" + max + ")に達しています"); return false;
         }
         if (land.getSpawn() == null && ChunkPos.of(p.getLocation()).equals(pos)) land.setSpawn(p.getLocation());
+        double cost = eco().claimCost();
+        if (land.getBank() < cost) {
+            msg(p, "§c土地の銀行残高が足りません（必要: " + eco().format(cost) + " / 残高: " + eco().format(land.getBank()) + "）"); return false;
+        }
+        land.setBank(land.getBank() - cost);
         lm().claim(land, pos);
+        if (cost > 0) msg(p, "§7銀行から " + eco().format(cost) + " を支払いました");
         msg(p, "§aチャンク(" + pos.x() + ", " + pos.z() + ")を保護しました §7[" + land.getChunks().size() + "/" + max + "]");
         return true;
     }
@@ -69,6 +84,8 @@ public final class LandActions {
         Land land = requireLand(p);
         if (land == null || !requireManage(p, land)) return false;
         if (lm().getLandAt(pos) != land) { msg(p, "§cこのチャンクはあなたの土地ではありません"); return false; }
+        if (land.getChunks().size() <= 1) { msg(p, "§c最後のチャンクは解除できません。土地を削除してください"); return false; }
+        land.setBank(land.getBank() + eco().unclaimRefund());
         lm().unclaim(land, pos);
         if (land.getSpawn() != null && ChunkPos.of(land.getSpawn()).equals(pos)) land.setSpawn(null);
         msg(p, "§eチャンク(" + pos.x() + ", " + pos.z() + ")の保護を解除しました");
@@ -195,7 +212,31 @@ public final class LandActions {
             msg(p, "§cこの操作はオーナーのみ可能です"); return;
         }
         broadcast(land, "§c土地「" + land.getName() + "」は削除されました");
+        if (land.getBank() > 0) {
+            eco().deposit(Bukkit.getOfflinePlayer(land.getOwner()), land.getBank());
+            broadcast(land, "§7銀行残高 " + eco().format(land.getBank()) + " はオーナーに返金されました");
+        }
         lm().delete(land);
+    }
+
+    public static void deposit(Player p, Land land, double amount) {
+        if (!eco().enabled()) { msg(p, "§c経済プラグインが導入されていません"); return; }
+        if (amount <= 0) { msg(p, "§c正の金額を入力してください"); return; }
+        if (!eco().withdraw(p, amount)) { msg(p, "§c所持金が足りません"); return; }
+        land.setBank(land.getBank() + amount);
+        lm().save();
+        msg(p, "§a" + eco().format(amount) + " を入金しました §7(残高: " + eco().format(land.getBank()) + ")");
+    }
+
+    public static void withdraw(Player p, Land land, double amount) {
+        if (!eco().enabled()) { msg(p, "§c経済プラグインが導入されていません"); return; }
+        if (!requireManage(p, land)) return;
+        if (amount <= 0) { msg(p, "§c正の金額を入力してください"); return; }
+        if (land.getBank() < amount) { msg(p, "§c銀行残高が足りません"); return; }
+        land.setBank(land.getBank() - amount);
+        eco().deposit(p, amount);
+        lm().save();
+        msg(p, "§a" + eco().format(amount) + " を引き出しました §7(残高: " + eco().format(land.getBank()) + ")");
     }
 
     public static void broadcast(Land land, String m) {

@@ -45,10 +45,12 @@ public class MainMenu extends Menu {
                 "§7あなたの役職: §f" + role.display,
                 "§7メンバー数: §f" + land.getMembers().size(),
                 "§7チャンク: §f" + land.getChunks().size() + "/" + max,
+                "§7銀行残高: §6" + LandsPlugin.get().economy().format(land.getBank()),
                 "§7現在地: " + hereName));
 
         ChunkPos pos = ChunkPos.of(player.getLocation());
-        set(10, Items.of(Material.LIME_BANNER, "§a§lこのチャンクを保護", "§7現在のチャンク (" + pos.x() + ", " + pos.z() + ")"),
+        set(10, Items.of(Material.LIME_BANNER, "§a§lこのチャンクを保護", "§7現在のチャンク (" + pos.x() + ", " + pos.z() + ")",
+                        "§7費用: §f" + LandsPlugin.get().economy().format(LandsPlugin.get().economy().claimCost()) + " §7(銀行から)"),
                 e -> { LandActions.claim(player, ChunkPos.of(player.getLocation())); refresh(); });
         set(11, Items.of(Material.RED_BANNER, "§c§lこのチャンクの保護を解除", "§7現在のチャンク (" + pos.x() + ", " + pos.z() + ")"),
                 e -> { LandActions.unclaim(player, ChunkPos.of(player.getLocation())); refresh(); });
@@ -68,6 +70,9 @@ public class MainMenu extends Menu {
         set(21, Items.of(Material.NAME_TAG, "§f§l土地名を変更", "§7オーナーのみ"),
                 e -> LandsPlugin.get().chatInput().ask(player, "§a新しい土地名を入力してください",
                         name -> { LandActions.rename(player, name); new MainMenu(player).open(); }));
+        set(22, Items.of(Material.GOLD_INGOT, "§6§l土地の銀行", "§7残高: §f" + LandsPlugin.get().economy().format(land.getBank()),
+                        "§7入金・引き出し・税金の確認"),
+                e -> new BankMenu(player).open());
         set(23, Items.of(Material.COMPASS, "§d§l土地一覧・訪問", "§7サーバーの土地を見て回ります"),
                 e -> new LandListMenu(player).open());
 

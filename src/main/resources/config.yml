@@ -7,3 +7,25 @@ disabled-worlds:
   - world_the_end
 # 土地の出入り時にタイトルを表示する
 show-enter-title: true
+
+# 経済設定（Vault + 経済プラグインが必要。無ければ全て無料・税金なし）
+economy:
+  # 土地作成費用（プレイヤーの所持金から支払い）
+  create-cost: 1000
+  # 1チャンク保護するごとの費用（土地の銀行から支払い）
+  claim-cost: 100
+  # 保護解除時に土地の銀行へ返金される額
+  unclaim-refund: 50
+
+# 税金（土地の銀行から定期的に徴収）
+tax:
+  enabled: true
+  # 徴収間隔（時間）
+  interval-hours: 24
+  # 1チャンクあたりの税額
+  per-chunk: 10
+  # メンバー1人あたりの税額
+  per-member: 0
+  # 税金を払えなかった場合、不足額に応じてチャンクの保護が解除される
+  # 全てのチャンクを失った土地は削除する
+  delete-when-empty: true

@@ -2,6 +2,7 @@ name: SimpleLands
 version: ${project.version}
 main: dev.lands.LandsPlugin
 api-version: '1.21'
+softdepend: [Vault]
 description: GUIで管理できる土地保護プラグイン
 commands:
   lands:

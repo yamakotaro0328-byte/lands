@@ -14,11 +14,15 @@ public class LandManager {
     private final File file;
     private final Map<String, Land> lands = new LinkedHashMap<>();
     private final Map<ChunkPos, Land> chunkIndex = new HashMap<>();
+    private long nextTax;
 
     public LandManager(LandsPlugin plugin) {
         this.plugin = plugin;
         this.file = new File(plugin.getDataFolder(), "lands.yml");
     }
+
+    public long getNextTax() { return nextTax; }
+    public void setNextTax(long t) { nextTax = t; }
 
     public Collection<Land> getLands() { return lands.values(); }
 
@@ -77,6 +81,7 @@ public class LandManager {
         chunkIndex.clear();
         if (!file.exists()) return;
         YamlConfiguration yml = YamlConfiguration.loadConfiguration(file);
+        nextTax = yml.getLong("next-tax", 0);
         ConfigurationSection root = yml.getConfigurationSection("lands");
         if (root == null) return;
         for (String key : root.getKeys(false)) {
@@ -98,6 +103,7 @@ public class LandManager {
                 for (String u : s.getStringList("invites")) land.getInvites().add(UUID.fromString(u));
                 for (String u : s.getStringList("banned")) land.getBanned().add(UUID.fromString(u));
                 land.setSpawn(s.getLocation("spawn"));
+                land.setBank(s.getDouble("bank"));
                 lands.put(land.getName().toLowerCase(Locale.ROOT), land);
             } catch (Exception e) {
                 plugin.getLogger().warning("土地 " + key + " の読み込みに失敗: " + e.getMessage());
@@ -107,6 +113,7 @@ public class LandManager {
 
     public void save() {
         YamlConfiguration yml = new YamlConfiguration();
+        yml.set("next-tax", nextTax);
         int i = 0;
         for (Land land : lands.values()) {
             String p = "lands." + (i++) + ".";
@@ -118,6 +125,7 @@ public class LandManager {
             yml.set(p + "invites", land.getInvites().stream().map(UUID::toString).toList());
             yml.set(p + "banned", land.getBanned().stream().map(UUID::toString).toList());
             yml.set(p + "spawn", land.getSpawn());
+            yml.set(p + "bank", land.getBank());
         }
         try {
             plugin.getDataFolder().mkdirs();

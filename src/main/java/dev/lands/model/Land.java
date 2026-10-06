@@ -8,11 +8,12 @@ public class Land {
     private String name;
     private UUID owner;
     private final Map<UUID, Role> members = new LinkedHashMap<>();
-    private final Set<ChunkPos> chunks = new HashSet<>();
+    private final Set<ChunkPos> chunks = new LinkedHashSet<>(); // 保護順を保持
     private final EnumMap<Flag, Boolean> flags = new EnumMap<>(Flag.class);
     private final Set<UUID> invites = new HashSet<>();
     private final Set<UUID> banned = new HashSet<>();
     private Location spawn;
+    private double bank;
 
     public Land(String name, UUID owner) {
         this.name = name;
@@ -29,6 +30,9 @@ public class Land {
     public Set<UUID> getBanned() { return banned; }
     public Location getSpawn() { return spawn; }
     public void setSpawn(Location spawn) { this.spawn = spawn; }
+
+    public double getBank() { return bank; }
+    public void setBank(double bank) { this.bank = bank; }
 
     public Role getRole(UUID uuid) { return members.get(uuid); }
     public boolean isMember(UUID uuid) { return members.containsKey(uuid); }
