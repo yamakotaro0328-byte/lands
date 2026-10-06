@@ -1,31 +1,28 @@
-# 1つの土地で保護できる最大チャンク数
-max-chunks: 64
-# 土地名の最大文字数
-max-name-length: 16
-# 土地を作成・保護できないワールド
-disabled-worlds:
-  - world_the_end
-# 土地の出入り時にタイトルを表示する
-show-enter-title: true
+# LightEco 設定
 
-# 経済設定（Vault + 経済プラグインが必要。無ければ全て無料・税金なし）
-economy:
-  # 土地作成費用（プレイヤーの所持金から支払い）
-  create-cost: 1000
-  # 1チャンク保護するごとの費用（土地の銀行から支払い）
-  claim-cost: 100
-  # 保護解除時に土地の銀行へ返金される額
-  unclaim-refund: 50
+currency: "円"
+start-money: 1000
 
-# 税金（土地の銀行から定期的に徴収）
-tax:
-  enabled: true
-  # 徴収間隔（時間）
-  interval-hours: 24
-  # 1チャンクあたりの税額
-  per-chunk: 10
-  # メンバー1人あたりの税額
-  per-member: 0
-  # 税金を払えなかった場合、不足額に応じてチャンクの保護が解除される
-  # 全てのチャンクを失った土地は削除する
-  delete-when-empty: true
+login-bonus:
+  base: 500          # 毎日のログインボーナス
+  streak-step: 100   # 連続ログイン1日ごとの追加額
+  max-streak-days: 6 # 追加が増える最大日数
+
+land:
+  base-price: 1000   # 最初の1チャンクの価格
+  step: 500          # 持っている数1つごとに上がる額
+  refund-rate: 0.5   # /l unclaim の返金率
+  max-per-player: 100
+
+nation:
+  create-cost: 50000
+  town-max-members: 4     # これを超えると「町」から「国」になる
+  member-land-share: true # 同じ町/国のメンバーは互いの土地で建築できる
+
+gamble:
+  max-bet: 100000
+  cooldown-seconds: 2
+
+jobs:
+  max-active: 2
+  reward-multiplier: 1.0

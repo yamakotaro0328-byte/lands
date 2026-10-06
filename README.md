@@ -1,48 +1,44 @@
-# SimpleLands
+# LightEco
 
-Lands風の土地保護プラグイン（Spigot / Paper 1.21+、Java 21）。**ほぼ全ての操作を GUI で行えます。**
+Paper 26.3 用の軽量な経済プラグイン（Java 25）。
 
-## ビルド
-```
-mvn package
-```
-`target/SimpleLands-1.0.0.jar` を `plugins/` に入れてください。
+## ビルド方法
+
+1. JDK 25 を入れる
+2. このフォルダで実行
+   - Windows: `gradlew.bat build`
+   - Mac/Linux: `./gradlew build`
+3. `build/libs/LightEco-1.0.0.jar` を サーバーの `plugins/` に入れて再起動
 
 ## コマンド
-| コマンド | 説明 |
+
+| コマンド | 内容 |
 |---|---|
-| `/lands` (`/land`, `/l`) | メインメニューを開く（全機能ここから） |
-| `/lands claim` / `unclaim` | 現在のチャンクを保護 / 解除（ショートカット） |
-| `/lands map` | 土地マップを開く |
-| `/lands spawn` | 自分の土地へテレポート |
-| `/lands bank` | 土地の銀行を開く |
-| `/lands reload` | 設定・データ再読込（`lands.admin`） |
-| `/lands taxnow` | 今すぐ全土地から税金を徴収（`lands.admin`） |
+| `/claim` | メニューアイテム（コンパス）を受け取る。右クリックでメニュー |
+| `/money [名前]` `/pay <名前> <金額>` `/baltop` | お金 |
+| `/gamble <coin\|slot> <金額>` | ギャンブル（メニューからも可） |
+| `/l claim` | 今いるチャンクを購入（1000円〜、1つ買うごとに+500円） |
+| `/l unclaim` `/l info` `/l list` `/l trust <名前>` `/l untrust <名前>` | 土地の管理 |
+| `/jobs` | 職業メニュー（hunter / miner / farmer / woodcutter / fisher） |
+| `/nation create <名前>` ほか | 町・国（5人以上で「国」表示） |
+| `/leco give\|take\|set <名前> <金額>` `/leco reload` | 管理者用 |
 
-## GUI でできること
-- 土地の作成（名前はチャットで入力）・名前変更・削除
-- 現在チャンクの保護/解除、**9×5チャンクのマップ**からクリックで保護/解除
-- メンバー招待（オンラインプレイヤー一覧から選択）、招待の承認/拒否
-- 役職変更（メンバー / 信頼メンバー）、オーナー譲渡、追放、脱退
-- 設定フラグ切替：訪問者の建築・ドア/ボタン・チェスト・動物攻撃、PvP、モンスタースポーン、爆発、延焼
-- 訪問禁止リスト（立ち入り禁止）
-- スポーン地点設定、土地一覧から他の土地へテレポート
-- 管理者は土地一覧で Shift+右クリックで任意の土地を削除
+## 設定
 
-## 経済・税金（Vault 連携）
-Vault と経済プラグイン（EssentialsX など）があると有効になります。無い場合は無料・税金なし。
-- 土地作成：プレイヤーの所持金から `create-cost`（最初の1チャンク込み）
-- チャンク保護：土地の銀行から `claim-cost`、解除で `unclaim-refund` を返金
-- 税金：`interval-hours` ごとに「チャンク数×`per-chunk` + メンバー数×`per-member`」を銀行から徴収
-- 払えない場合は不足額に応じて新しく保護したチャンクから没収、全て失うと土地削除
-- 銀行メニューで入金（全員）・引き出し（信頼メンバー以上）、次の税金までの時間を確認
-- 土地削除時は銀行残高がオーナーに返金
+`plugins/LightEco/config.yml` で金額・土地の価格・上限などを変更できます。
+データは `plugins/LightEco/data.yml` に保存されます。
 
-## 権限
-- `lands.use` (デフォルト: 全員)
-- `lands.admin` (デフォルト: OP) — 全土地での操作バイパス、上限無視、削除
+## EssentialsX と併用する場合
 
-## 設定 (`config.yml`)
-`max-chunks`, `max-name-length`, `disabled-worlds`, `show-enter-title`, `economy.*`, `tax.*`
+EssentialsX にも `/balance`(`/money`) `/pay` `/baltop` `/eco` があり、名前が重なります。
+Essentials の `config.yml` の `disabled-commands:` に次を追加してください。
 
-データは `plugins/SimpleLands/lands.yml` に保存されます。
+```yaml
+disabled-commands:
+  - balance
+  - pay
+  - baltop
+  - eco
+```
+
+Essentials のお金と LightEco のお金は別管理です（Vault 連携は入れていません）。

@@ -1,15 +1,42 @@
-name: SimpleLands
-version: ${project.version}
-main: dev.lands.LandsPlugin
-api-version: '1.21'
-softdepend: [Vault]
-description: GUIで管理できる土地保護プラグイン
+name: LightEco
+version: '${version}'
+main: com.example.lighteco.LightEco
+api-version: '26.3'
+description: 軽量な経済・土地・職業・ギャンブル・国プラグイン
+authors: [LightEco]
+
 commands:
-  lands:
-    description: 土地メニューを開く
-    aliases: [land, l]
+  money:
+    description: 所持金を確認する
+    usage: /money [プレイヤー]
+  pay:
+    description: 他のプレイヤーにお金を送る
+    usage: /pay <プレイヤー> <金額>
+  baltop:
+    description: 所持金ランキング
+    usage: /baltop
+  claim:
+    description: メニューアイテムを受け取る
+    usage: /claim
+  gamble:
+    description: ギャンブルをする
+    usage: /gamble <coin|slot> <金額>
+  l:
+    description: 土地の管理
+    aliases: [land]
+    usage: /l <claim|unclaim|info|trust|untrust|list>
+  jobs:
+    description: 職業メニュー
+    usage: /jobs [join|leave|info] [職業]
+  nation:
+    description: 町・国の管理
+    usage: /nation <create|info|list|invite|accept|leave|kick|disband|deposit|withdraw>
+  leco:
+    description: 管理者用コマンド
+    usage: /leco <give|take|set|reload> ...
+    permission: lighteco.admin
+
 permissions:
-  lands.use:
-    default: true
-  lands.admin:
+  lighteco.admin:
+    description: 管理者コマンドと土地保護の無視
     default: op
