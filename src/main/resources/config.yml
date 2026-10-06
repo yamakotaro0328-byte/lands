@@ -1,0 +1,9 @@
+# 1つの土地で保護できる最大チャンク数
+max-chunks: 64
+# 土地名の最大文字数
+max-name-length: 16
+# 土地を作成・保護できないワールド
+disabled-worlds:
+  - world_the_end
+# 土地の出入り時にタイトルを表示する
+show-enter-title: true

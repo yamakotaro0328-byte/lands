@@ -1,0 +1,14 @@
+name: SimpleLands
+version: ${project.version}
+main: dev.lands.LandsPlugin
+api-version: '1.21'
+description: GUIで管理できる土地保護プラグイン
+commands:
+  lands:
+    description: 土地メニューを開く
+    aliases: [land, l]
+permissions:
+  lands.use:
+    default: true
+  lands.admin:
+    default: op
