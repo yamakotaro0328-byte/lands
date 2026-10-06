@@ -102,10 +102,13 @@ public final class Jobs {
         return 3; // 石炭・銅など
     }
 
+    public static boolean isCropType(Material m) {
+        return m == Material.WHEAT || m == Material.CARROTS || m == Material.POTATOES
+                || m == Material.BEETROOTS || m == Material.NETHER_WART;
+    }
+
     public static boolean isCrop(Block b) {
-        Material m = b.getType();
-        if (m != Material.WHEAT && m != Material.CARROTS && m != Material.POTATOES
-                && m != Material.BEETROOTS && m != Material.NETHER_WART) return false;
+        if (!isCropType(b.getType())) return false;
         return b.getBlockData() instanceof Ageable a && a.getAge() >= a.getMaximumAge();
     }
 }

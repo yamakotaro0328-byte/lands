@@ -31,7 +31,7 @@ public final class Commands implements CommandExecutor, TabCompleter {
             case "money" -> money(s, a);
             case "pay" -> pay(s, a);
             case "baltop" -> baltop(s);
-            case "claim" -> claim(s);
+            case "menu" -> claim(s);
             case "gamble" -> gamble(s, a);
             case "l" -> land(s, a);
             case "jobs" -> jobs(s, a);
@@ -117,7 +117,7 @@ public final class Commands implements CommandExecutor, TabCompleter {
     private void claim(CommandSender s) {
         Player p = player(s);
         if (p == null) return;
-        for (var it : p.getInventory().getContents()) {
+        for (var it : p.getInventory().getContents()) { // getContents はオフハンド・防具欄も含む
             if (plugin.isMenuItem(it)) {
                 plugin.msg(p, "<yellow>すでにメニューアイテムを持っています。");
                 return;

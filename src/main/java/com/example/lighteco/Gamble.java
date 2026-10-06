@@ -17,6 +17,10 @@ public final class Gamble {
         this.plugin = plugin;
     }
 
+    public void forget(UUID id) {
+        last.remove(id);
+    }
+
     public void play(Player p, String game, long bet) {
         var cfg = plugin.getConfig();
         long max = cfg.getLong("gamble.max-bet", 100000);

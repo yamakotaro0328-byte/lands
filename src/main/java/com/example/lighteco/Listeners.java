@@ -4,9 +4,15 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Tag;
 import org.bukkit.block.Block;
-import org.bukkit.entity.Enemy;
-import org.bukkit.entity.LivingEntity;
-import org.bukkit.entity.Player;
+import org.bukkit.NamespacedKey;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.data.Directional;
+import org.bukkit.entity.*;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.event.block.BlockFertilizeEvent;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.Event;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -29,13 +35,17 @@ import java.util.*;
 public final class Listeners implements Listener {
 
     private final LightEco plugin;
-    private final Set<UUID> giveBack = new HashSet<>();
     private final Map<UUID, Long> warned = new HashMap<>();
-    // 置かれた鉱石・原木（置いて壊す不正対策。再起動で消える軽量版）
-    private final Map<UUID, Set<Long>> placed = new HashMap<>();
+    // 置かれた鉱石・原木・骨粉作物の記録（チャンクに保存）
+    private final Placed placed;
+    private final NamespacedKey noRewardKey;
+    private final Map<UUID, String> fishPos = new HashMap<>();
+    private final Map<UUID, Integer> fishCount = new HashMap<>();
 
     public Listeners(LightEco plugin) {
         this.plugin = plugin;
+        this.placed = new Placed(plugin);
+        this.noRewardKey = new NamespacedKey(plugin, "noreward");
     }
 
     // ---------- 参加 / ログインボーナス ----------
@@ -48,9 +58,15 @@ public final class Listeners implements Listener {
 
         if (!d.money.containsKey(id)) {
             d.set(id, plugin.getConfig().getLong("start-money", 1000));
-            plugin.msg(p, "<yellow>ようこそ！ <white>/claim</white> でメニューアイテムを受け取れます。");
+            plugin.msg(p, "<yellow>ようこそ！ <white>/menu</white> でメニューアイテムを受け取れます。");
         }
+        loginBonus(p);
+    }
 
+    /** 今日まだ受け取っていなければログインボーナスを渡す（日付をまたいだオンライン中のプレイヤーにも定期的に呼ぶ）。 */
+    public void loginBonus(Player p) {
+        Data d = plugin.data;
+        UUID id = p.getUniqueId();
         String today = LocalDate.now().toString();
         String last = d.lastLogin.get(id);
         if (!today.equals(last)) {
@@ -63,6 +79,13 @@ public final class Listeners implements Listener {
             d.add(id, bonus);
             plugin.msg(p, "<gold>ログインボーナス！ <green>+" + d.fmt(bonus) + " <gray>(連続 " + streak + " 日)");
         }
+    }
+
+    @EventHandler
+    public void onQuit(PlayerQuitEvent e) {
+        fishPos.remove(e.getPlayer().getUniqueId());
+        fishCount.remove(e.getPlayer().getUniqueId());
+        plugin.gamble.forget(e.getPlayer().getUniqueId());
     }
 
     // ---------- メニューアイテム ----------
@@ -93,6 +116,40 @@ public final class Listeners implements Listener {
         }
     }
 
+    /** メニューアイテムをチェスト等に入れられないようにする（複製防止） */
+    @EventHandler(priority = EventPriority.LOW)
+    public void onMenuItemMove(InventoryClickEvent e) {
+        if (e.getInventory().getHolder() instanceof Gui.Holder) return;
+        var top = e.getView().getTopInventory().getType();
+        if (top == org.bukkit.event.inventory.InventoryType.CRAFTING) return; // 自分のインベントリのみ
+        boolean intoTop = e.getClickedInventory() == e.getView().getTopInventory();
+        ItemStack hotbar = e.getHotbarButton() >= 0 ? e.getWhoClicked().getInventory().getItem(e.getHotbarButton()) : null;
+        if ((intoTop && (plugin.isMenuItem(e.getCursor()) || plugin.isMenuItem(hotbar)
+                || (e.getClick() == org.bukkit.event.inventory.ClickType.SWAP_OFFHAND && plugin.isMenuItem(e.getWhoClicked().getInventory().getItemInOffHand()))))
+                || (!intoTop && e.isShiftClick() && plugin.isMenuItem(e.getCurrentItem()))) {
+            e.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOW)
+    public void onMenuItemDrag(InventoryDragEvent e) {
+        if (!plugin.isMenuItem(e.getOldCursor())) return;
+        int topSize = e.getView().getTopInventory().getSize();
+        if (e.getView().getTopInventory().getType() == org.bukkit.event.inventory.InventoryType.CRAFTING) return;
+        for (int raw : e.getRawSlots()) {
+            if (raw < topSize) {
+                e.setCancelled(true);
+                return;
+            }
+        }
+    }
+
+    @EventHandler
+    public void onFrame(PlayerInteractEntityEvent e) {
+        if (e.getRightClicked() instanceof org.bukkit.entity.ItemFrame
+                && plugin.isMenuItem(e.getPlayer().getInventory().getItem(e.getHand()))) e.setCancelled(true);
+    }
+
     @EventHandler
     public void onDrop(PlayerDropItemEvent e) {
         if (plugin.isMenuItem(e.getItemDrop().getItemStack())) e.setCancelled(true);
@@ -101,14 +158,19 @@ public final class Listeners implements Listener {
     @EventHandler
     public void onDeath(org.bukkit.event.entity.PlayerDeathEvent e) {
         boolean had = e.getDrops().removeIf(plugin::isMenuItem);
-        if (had) giveBack.add(e.getEntity().getUniqueId());
+        // プレイヤーのデータに印を付ける（サーバー再起動をはさんでも返却できるように）
+        if (had) e.getEntity().getPersistentDataContainer().set(plugin.menuKey, PersistentDataType.BYTE, (byte) 1);
     }
 
     @EventHandler
     public void onRespawn(PlayerRespawnEvent e) {
         Player p = e.getPlayer();
-        if (giveBack.remove(p.getUniqueId())) {
-            Bukkit.getScheduler().runTask(plugin, () -> p.getInventory().addItem(plugin.menuItem()));
+        if (p.getPersistentDataContainer().has(plugin.menuKey, PersistentDataType.BYTE)) {
+            p.getPersistentDataContainer().remove(plugin.menuKey);
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                var left = p.getInventory().addItem(plugin.menuItem());
+                left.values().forEach(it -> p.getWorld().dropItem(p.getLocation(), it));
+            });
         }
     }
 
@@ -229,10 +291,6 @@ public final class Listeners implements Listener {
     }
 
     // ---------- 職業の報酬 ----------
-    private static long key(Block b) {
-        return ((long) (b.getX() & 0x3FFFFFF) << 38) | ((long) (b.getZ() & 0x3FFFFFF) << 12) | (b.getY() & 0xFFF);
-    }
-
     private static boolean tracked(Material m) {
         return m.name().endsWith("_ORE") || m == Material.ANCIENT_DEBRIS || Tag.LOGS.isTagged(m);
     }
@@ -240,10 +298,38 @@ public final class Listeners implements Listener {
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlaceTrack(BlockPlaceEvent e) {
         Block b = e.getBlockPlaced();
-        if (!tracked(b.getType())) return;
-        Set<Long> set = placed.computeIfAbsent(b.getWorld().getUID(), k -> new HashSet<>());
-        if (set.size() > 20000) set.clear();
-        set.add(key(b));
+        if (tracked(b.getType())) placed.mark(b);
+        else if (Jobs.isCropType(b.getType())) placed.remove(b); // 植え直したら記録をリセット
+    }
+
+    /** 骨粉で育てた作物は農家の報酬対象外にする */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onFertilize(BlockFertilizeEvent e) {
+        for (var st : e.getBlocks()) {
+            if (Jobs.isCropType(st.getType())) placed.mark(st.getBlock());
+        }
+    }
+
+    /** ピストンで動かした鉱石・原木は「置かれたもの」扱いにする */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonExtend(BlockPistonExtendEvent e) {
+        pistonTrack(e.getBlock(), e.getBlocks(), true);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonRetract(BlockPistonRetractEvent e) {
+        pistonTrack(e.getBlock(), e.getBlocks(), false);
+    }
+
+    private void pistonTrack(Block piston, List<Block> blocks, boolean extend) {
+        if (!(piston.getBlockData() instanceof Directional d)) return;
+        BlockFace move = extend ? d.getFacing() : d.getFacing().getOppositeFace();
+        for (Block b : blocks) {
+            if (tracked(b.getType())) {
+                placed.remove(b);
+                placed.mark(b.getRelative(move));
+            }
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -253,17 +339,26 @@ public final class Listeners implements Listener {
         Material m = b.getType();
 
         if (Jobs.isCrop(b)) {
-            plugin.jobs.reward(p, "farmer", 5);
+            if (!placed.remove(b)) plugin.jobs.reward(p, "farmer", 5);
             return;
         }
         if (!tracked(m)) return;
-
-        Set<Long> set = placed.get(b.getWorld().getUID());
-        if (set != null && set.remove(key(b))) return; // 置かれたブロックは対象外
+        if (placed.remove(b)) return; // 置かれたブロックは対象外
 
         double ore = Jobs.mineBase(m);
         if (ore > 0) plugin.jobs.reward(p, "miner", ore);
         else if (Tag.LOGS.isTagged(m)) plugin.jobs.reward(p, "woodcutter", 3);
+    }
+
+    /** スポナー・スポーンエッグ・スライム分裂で出たモブは報酬なし */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onSpawn(CreatureSpawnEvent e) {
+        switch (e.getSpawnReason()) {
+            case SPAWNER, SPAWNER_EGG, SLIME_SPLIT, BUILD_WITHER, DISPENSE_EGG ->
+                    e.getEntity().getPersistentDataContainer().set(noRewardKey, PersistentDataType.BYTE, (byte) 1);
+            default -> {
+            }
+        }
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -271,15 +366,25 @@ public final class Listeners implements Listener {
         LivingEntity ent = e.getEntity();
         Player killer = ent.getKiller();
         if (killer == null || !(ent instanceof Enemy)) return;
-        double hp = ent.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH) == null ? 20
-                : ent.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
-        plugin.jobs.reward(killer, "hunter", hp >= 100 ? 500 : 15);
+        if (ent.getPersistentDataContainer().has(noRewardKey, PersistentDataType.BYTE)) return;
+        boolean boss = ent instanceof Wither || ent instanceof EnderDragon || ent instanceof Warden || ent instanceof ElderGuardian;
+        plugin.jobs.reward(killer, "hunter", boss ? 500 : 15);
     }
 
     @EventHandler(ignoreCancelled = true)
     public void onFish(PlayerFishEvent e) {
-        if (e.getState() == PlayerFishEvent.State.CAUGHT_FISH) {
-            plugin.jobs.reward(e.getPlayer(), "fisher", 20);
+        if (e.getState() != PlayerFishEvent.State.CAUGHT_FISH) return;
+        Player p = e.getPlayer();
+        // 位置も視点もまったく変わらずに釣り続けている場合は放置釣り（AFK）とみなす
+        var l = p.getLocation();
+        String pos = l.getBlockX() + "," + l.getBlockY() + "," + l.getBlockZ() + "," + Math.round(l.getYaw()) + "," + Math.round(l.getPitch());
+        int n = pos.equals(fishPos.get(p.getUniqueId())) ? fishCount.merge(p.getUniqueId(), 1, Integer::sum) : 1;
+        fishPos.put(p.getUniqueId(), pos);
+        if (n == 1) fishCount.put(p.getUniqueId(), 1);
+        if (n > 5) {
+            if (n == 6) plugin.msg(p, "<yellow>同じ場所・同じ向きのままでは釣りの報酬が出ません。少し動いてください。");
+            return;
         }
+        plugin.jobs.reward(p, "fisher", 20);
     }
 }

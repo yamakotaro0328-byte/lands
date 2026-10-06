@@ -15,9 +15,10 @@ commands:
   baltop:
     description: 所持金ランキング
     usage: /baltop
-  claim:
+  menu:
     description: メニューアイテムを受け取る
-    usage: /claim
+    aliases: [lmenu]
+    usage: /menu
   gamble:
     description: ギャンブルをする
     usage: /gamble <coin|slot> <金額>

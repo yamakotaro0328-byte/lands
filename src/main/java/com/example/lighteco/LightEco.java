@@ -23,6 +23,7 @@ public final class LightEco extends JavaPlugin {
     public Jobs jobs;
     public Gui gui;
     public Gamble gamble;
+    public Listeners listeners;
     public NamespacedKey menuKey;
 
     @Override
@@ -35,10 +36,12 @@ public final class LightEco extends JavaPlugin {
         gui = new Gui(this);
         gamble = new Gamble(this);
 
-        getServer().getPluginManager().registerEvents(new Listeners(this), this);
+        listeners = new Listeners(this);
+        getServer().getPluginManager().registerEvents(listeners, this);
+        getServer().getPluginManager().registerEvents(new Protect(this), this);
 
         Commands cmds = new Commands(this);
-        for (String name : List.of("money", "pay", "baltop", "claim", "gamble", "l", "jobs", "nation", "leco")) {
+        for (String name : List.of("money", "pay", "baltop", "menu", "gamble", "l", "jobs", "nation", "leco")) {
             PluginCommand pc = getCommand(name);
             if (pc != null) {
                 pc.setExecutor(cmds);
@@ -48,6 +51,8 @@ public final class LightEco extends JavaPlugin {
 
         // 5分ごとに、変更があったときだけ非同期保存
         getServer().getScheduler().runTaskTimer(this, () -> data.save(false), 6000L, 6000L);
+        // 日付をまたいでログインし続けている人にもログインボーナスを渡す
+        getServer().getScheduler().runTaskTimer(this, () -> getServer().getOnlinePlayers().forEach(listeners::loginBonus), 1200L, 1200L);
     }
 
     @Override
@@ -115,7 +120,11 @@ public final class LightEco extends JavaPlugin {
 
     /** 建築・破壊などが許可されているか。 */
     public boolean canBuild(Player p, org.bukkit.block.Block b) {
-        UUID owner = data.landOwner(b.getWorld().getName(), b.getX() >> 4, b.getZ() >> 4);
+        return canBuild(p, b.getLocation());
+    }
+
+    public boolean canBuild(Player p, org.bukkit.Location l) {
+        UUID owner = data.landOwner(l.getWorld().getName(), l.getBlockX() >> 4, l.getBlockZ() >> 4);
         if (owner == null || owner.equals(p.getUniqueId())) return true;
         if (p.hasPermission("lighteco.admin")) return true;
         Set<UUID> t = data.trusted.get(owner);

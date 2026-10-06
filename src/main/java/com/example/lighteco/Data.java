@@ -51,8 +51,15 @@ public final class Data {
     }
 
     public void add(UUID id, long amount) {
-        money.merge(id, amount, Long::sum);
+        money.merge(id, amount, Data::safeSum);
         dirty = true;
+    }
+
+    /** オーバーフローせず、0未満にもならない足し算。 */
+    private static long safeSum(long a, long b) {
+        long r = a + b;
+        if (((a ^ r) & (b ^ r)) < 0) r = b > 0 ? Long.MAX_VALUE : 0;
+        return Math.max(0, r);
     }
 
     public void set(UUID id, long amount) {
@@ -226,6 +233,7 @@ public final class Data {
 
         String text = y.saveToString();
         Runnable write = () -> {
+            synchronized (this) { // 非同期保存と停止時の保存が同時に走ってもファイルが壊れないように
             try {
                 plugin.getDataFolder().mkdirs();
                 File tmp = new File(plugin.getDataFolder(), "data.yml.tmp");
@@ -233,6 +241,7 @@ public final class Data {
                 Files.move(tmp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
                 plugin.getLogger().severe("data.yml の保存に失敗: " + e.getMessage());
+            }
             }
         };
         if (sync) write.run();
